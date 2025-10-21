@@ -1,9 +1,11 @@
---// 🔥 AutoFarm Mihawk + SJW + AutoZoom Camera 🔥
+--// 🔥 AutoFarm Mihawk + SJW + AutoZoom Camera (Full Toggle) 🔥
 
 local player = game:GetService("Players").LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Serverside")
+local runService = game:GetService("RunService")
+local camera = workspace.CurrentCamera
 
 --===[ 🌙 สร้าง UI หลัก ]===--
 local gui = Instance.new("ScreenGui")
@@ -54,7 +56,7 @@ zoomButton.Parent = frame
 --===[ ตัวแปรสถานะ ]===--
 getgenv().AutoFarmMihawk = false
 getgenv().gx = true
-getgenv().AutoZoom = true -- ✅ เปิด AutoZoom อัตโนมัติเมื่อเริ่มรัน
+getgenv().AutoZoom = true -- ✅ เปิดอัตโนมัติเมื่อเริ่มต้น
 
 --===[ ฟังก์ชันเปิด/ปิด AutoFarm ]===--
 local function ToggleAutoFarm(state)
@@ -72,46 +74,39 @@ toggleButton.MouseButton1Click:Connect(function()
 	ToggleAutoFarm(not getgenv().AutoFarmMihawk)
 end)
 
---===[ ฟังก์ชันเปิด/ปิด AutoZoom ]===--
-local camera = workspace.CurrentCamera
-local runService = game:GetService("RunService")
-
+--===[ ฟังก์ชันเปิด/ปิด AutoZoom กล้อง ]===--
+local autoZoomConn
 local function EnableAutoZoom(state)
 	getgenv().AutoZoom = state
 	if state then
 		zoomButton.Text = "🟢 AutoZoom : ON"
 		zoomButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+
+		local zoomSpeed = 1
+		autoZoomConn = runService.RenderStepped:Connect(function()
+			if not getgenv().AutoZoom then return end
+			local char = player.Character or player.CharacterAdded:Wait()
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			if not hrp then return end
+
+			camera.CameraType = Enum.CameraType.Scriptable
+			local maxZoom = player.CameraMaxZoomDistance or 128
+			local zoom = math.min(maxZoom, 100)
+			camera.CFrame = hrp.CFrame * CFrame.new(0, zoom, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+		end)
 	else
 		zoomButton.Text = "🔴 AutoZoom : OFF"
 		zoomButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+		camera.CameraType = Enum.CameraType.Custom -- ✅ กลับสู่กล้องปกติ
+		if autoZoomConn then
+			autoZoomConn:Disconnect()
+			autoZoomConn = nil
+		end
 	end
 end
 
 zoomButton.MouseButton1Click:Connect(function()
 	EnableAutoZoom(not getgenv().AutoZoom)
-end)
-
---===[ ระบบ AutoZoom กล้อง ]===--
-task.spawn(function()
-	local zoomSpeed = 1
-	while task.wait() do
-		if getgenv().AutoZoom then
-			local char = player.Character or player.CharacterAdded:Wait()
-			local hrp = char:FindFirstChild("HumanoidRootPart")
-			if hrp then
-				camera.CameraType = Enum.CameraType.Scriptable
-				local maxZoom = player.CameraMaxZoomDistance or 128
-				local zoom = 20
-				while getgenv().AutoZoom and zoom < maxZoom do
-					camera.CFrame = hrp.CFrame * CFrame.new(0, zoom, 0) * CFrame.Angles(math.rad(-90), 0, 0)
-					zoom += zoomSpeed
-					task.wait(0.02)
-				end
-			end
-		else
-			task.wait(0.5)
-		end
-	end
 end)
 
 --===[ ปรับ ProximityPrompt ]===--
@@ -207,7 +202,7 @@ task.spawn(function()
 	end
 end)
 
--- เปิด AutoFarm และ AutoZoom อัตโนมัติ
+--===[ เปิด AutoFarm + AutoZoom ตอนเริ่มต้น ]===--
 task.delay(2, function()
 	ToggleAutoFarm(true)
 	EnableAutoZoom(true)
